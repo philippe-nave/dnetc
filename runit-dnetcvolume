@@ -1,0 +1,13 @@
+#!/bin/bash
+#
+# Run the container with default command (execute dnetc)
+# in the background (detached mode), using a volume to 
+# persist the dnetc home directory. This can be used to verify
+# (through use of the persistent volume) that the detached
+# mode execution is actually doing what it's supposed to.
+#
+# Note: In order to use the dnetchome volume, you must
+# create it initially with 'docker volume create --name dnetchome'
+#
+
+docker run --env-file ./env.list -v dnetchome:/home -d dnetc 

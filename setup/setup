@@ -1,0 +1,33 @@
+#!/bin/bash
+#
+# Script to fetch, unpack, and install dnetc
+# 11/28/16 Philippe Nave
+
+# TARBALLURL is provided as an environment variable
+
+# playing a little fast and loose with file and directory
+# names, just to make the installation simpler
+
+echo "Installing and configuring dnetc.."
+
+cd /home/dnetc
+
+# fetch the tarball and uncompress
+curl ${TARBALLURL} > dnetc.tar.gz
+gunzip dnetc.tar.gz
+
+# create a generic directory, untar to there
+tar -xf dnetc.tar
+rm dnetc.tar
+
+# grab the tarball contents
+mv dnetc*/* .
+
+# get rid of tarball subdirectory
+find . -type d -name "dnetc*" -print | xargs rm -rf
+
+# create minimal config file from template
+sed -e "s/EMAILADDRESS/$EMAILADDRESS/g" < template.ini > dnetc.ini
+rm template.ini
+
+echo "Installation and configuration is complete."

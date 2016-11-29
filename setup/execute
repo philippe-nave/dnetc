@@ -1,0 +1,15 @@
+#!/bin/bash
+#
+# Check to see if dnetc is installed and install if
+# necessary, then run it.   11/28/2016 Philippe Nave
+#
+
+cd /home/dnetc
+
+if [ ! -f dnetc.ini ]; then
+   ./setup
+fi
+
+# execute the dnetc distributed computing app
+
+./dnetc

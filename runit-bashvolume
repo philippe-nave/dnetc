@@ -1,0 +1,16 @@
+#!/bin/bash
+#
+# Run the container to an interactive shell prompt
+# This script persists the /home container directory
+# in a volume on the local file system
+#
+
+# --rm option cleans up the container file system upon exit
+#   (housekeeping)
+
+# hmm - this mounts the dnetc/homevol external directory into /home,
+# all right - but it doesn't populate it with the setup stuff in the container:
+#docker run --env-file ./env.list -v /home/ec2-user/docker/dnetc/homevol:/home --rm -i -t dnetc /bin/bash
+
+# aha - after running 'docker volume create --name dnetchome', this works better:
+docker run --env-file ./env.list -v dnetchome:/home --rm -i -t dnetc /bin/bash

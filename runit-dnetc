@@ -1,0 +1,8 @@
+#!/bin/bash
+#
+# Run the container with default command (execute dnetc)
+#
+
+# --rm option cleans up the container file system upon exit
+#   (housekeeping)
+docker run --env-file ./env.list -d dnetc 

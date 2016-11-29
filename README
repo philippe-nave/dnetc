@@ -1,0 +1,178 @@
+dnetc - run a distributed computing application in a Docker container
+
+This Docker project is a fairly trivial implementation of
+dnetc - a distributed computing application from distributed.net
+( http://www.distributed.net ) that requests units of work from
+a central server, does some number-crunching, and reports the
+results. I chose this project because it's a black-box Linux
+executable that doesn't have a lot of dependencies and is easy
+to configure and set up.
+
+
+OS choice and container configuration
+=====================================
+
+Looking at the Dockerfile, you can see that I'm using Alpine
+for the base OS ( https://hub.docker.com/_/alpine/ ). This is
+a small, minimal Linux baseline that's 5MB in size - we don't
+need a full-blown environment like Ubuntu to run dnetc. Out
+of the box, Alpine doesn't even have bash - so, we add it
+like so in the Dockerfile:
+
+RUN apk add --update bash && rm -rf /var/cache/apk/*
+
+The 'add --update bash' bit is fairly straightforward, and
+the 'rm -rf /var/cache/apk/*' bit does some cleanup after
+bash is added to the system.
+
+The first thing any dnetc installation needs to do is fetch
+the required files from the distributed.net server, so we
+add the curl utility like so in the dockerfile:
+
+RUN apk add --update curl && rm -rf /var/cache/apk/*
+
+Same drill - add the package, then clean up afterwards.
+
+
+Parameters passed in as environment variables
+=============================================
+
+We need a couple of things to install and run dnetc - a
+URL to fetch the software from, and an email address (just
+in case your dnetc run solves one of the mysteries of the
+universe and they need to know where to send the Nobel Prize).
+
+These values are specified in the env.list file:
+
+# environment variables to be passed into docker container
+EMAILADDRESS=youremail@example.com
+TARBALLURL=http://http.distributed.net/pub/dcti/current-client/dnetc-linux-x86-elf-uclibc.tar.gz
+
+Now, understand - this is a trivial implementation, not a
+general solution that sets up dnetc for any possible target
+OS. That's the tarball that works with this x86 version of
+Alpine in a Docker container.
+
+
+Setup/execute scripts
+=====================
+
+I load in the setup and execution scripts into the /home/dnetc
+directory in the container with this line in the Dockerfile:
+
+ADD setup /home/dnetc
+
+Here's the setup script:
+
+#!/bin/bash
+#
+# Script to fetch, unpack, and install dnetc
+# 11/28/16 Philippe Nave
+
+# TARBALLURL is provided as an environment variable
+
+# playing a little fast and loose with file and directory
+# names, just to make the installation simpler
+
+echo "Installing and configuring dnetc.."
+
+cd /home/dnetc
+
+# fetch the tarball and uncompress
+curl ${TARBALLURL} > dnetc.tar.gz
+gunzip dnetc.tar.gz
+
+# create a generic directory, untar to there
+tar -xf dnetc.tar
+rm dnetc.tar
+
+# grab the tarball contents
+mv dnetc*/* .
+
+# get rid of tarball subdirectory
+find . -type d -name "dnetc*" -print | xargs rm -rf
+
+# create minimal config file from template
+sed -e "s/EMAILADDRESS/$EMAILADDRESS/g" < template.ini > dnetc.ini
+rm template.ini
+
+echo "Installation and configuration is complete."
+
+
+Most of this stuff is completely straightforward -
+go get the tarball from distributed.net, open it up,
+copy stuff to where it needs to be, and clean up
+afterwards. There's a little weirdness associated
+with the fact that the tarball unrolls dnetc into
+a directory with a huge, complicated name - but we
+handwave all that with some clever scripting.
+
+Here's the actual execution script:
+
+
+#!/bin/bash
+#
+# Check to see if dnetc is installed and install if
+# necessary, then run it.   11/28/2016 Philippe Nave
+#
+
+cd /home/dnetc
+
+if [ ! -f dnetc.ini ]; then
+   ./setup
+fi
+
+# execute the dnetc distributed computing app
+
+./dnetc
+
+
+
+Very simple stuff - the existence of dnetc.ini flags us 
+as to whether or not we need to fetch, install, and configure
+the application - and then we just execute the binary.
+
+
+Docker scripts
+==============
+
+The 'build' script builds the Docker image (surprise!)
+
+The 'runit-bash' script starts the container and drops you
+into bash, so that you can poke around in the Alpine 
+environment, look at things, etc. This does *not* automatically
+execute the setup/installation process for dnetc.
+
+The 'runit-dnetc' script fires off the whole dnetc installation
+and startup process in a container running in the background.
+
+
+Bonus feature: persistent storage of the dnetc process state
+============================================================
+
+With what you've seen so far, you may have noticed that this
+setup will do the full dnetc installation and configuration
+process every time you fire up a dnetc container, since the
+Docker container is essentially stateless. This is not really
+an enormous problem, but it's not as elegant as it could be.
+If you persist the dnetc home directory, you don't have to
+do the installation every time and you can preserve the state
+of your dnetc processing from one container instance to the
+next. This way, dnetc can take up where it left off.
+
+One simple way to manage persistence is with a Docker volume.
+You can create a simple volume with this command:
+
+docker volume create --name dnetchome
+
+Do this once, and you can play with another couple of scripts
+to see how it works.
+
+The 'runit-bashvolume' script is just like 'runit-bash', 
+except that the /home/dnetrc directory is stored in the
+Docker volume 'dnetchome'. Changes made there will persist
+across later deployments of the Docker container.
+
+The 'runit-dnetcvolume' script is what you'd expect - it runs
+the actual dnetc application in the background, again using
+the Docker volume 'dnetchome' for persistent storage.
